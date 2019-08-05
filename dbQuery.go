@@ -3,6 +3,7 @@ package main
 import (
 	"database/sql"
 	"encoding/json"
+	"errors"
 )
 
 // NullString is an alias for sql.NullString data types
@@ -25,6 +26,7 @@ func (ns *NullString) UnmarshalJSON(b []byte) error {
 	return err
 }
 
+//TV struct
 type TV struct {
 	ID           int64      `json:"id"`
 	Brand        NullString `json:"brand"`
@@ -33,6 +35,7 @@ type TV struct {
 	Year         int        `json:"year"`
 }
 
+//InPutTv struct
 type InPutTv struct {
 	Brand        NullString `json:"brand"`
 	Manufacturer string     `json:"manufacturer"`
@@ -43,7 +46,7 @@ type InPutTv struct {
 //GetTV get information about the TV by id
 func GetTV(db *sql.DB, id int64) (*TV, error) {
 
-	row := db.QueryRow("select * from tv where tv.id = $1", id) //todo проверить, что выдаётся в неправильном запросе
+	row := db.QueryRow("select * from tv where tv.id = $1", id)
 
 	tv := TV{}
 	err := row.Scan(&tv.ID, &tv.Brand, &tv.Manufacturer, &tv.Model, &tv.Year)
@@ -55,8 +58,7 @@ func GetTV(db *sql.DB, id int64) (*TV, error) {
 
 }
 
-func GetAllTV() {}
-
+//UpdateTV put data from tv table
 func UpdateTV(db *sql.DB, id int64, inTv *InPutTv) (int64, error) {
 	result, err := db.Exec("update tv set brand = $1, manufacturer = $2, model = $3, year = $4  where id = $5",
 		inTv.Brand, inTv.Manufacturer, inTv.Model, inTv.Year, id)
@@ -65,14 +67,15 @@ func UpdateTV(db *sql.DB, id int64, inTv *InPutTv) (int64, error) {
 		return -1, err
 	}
 
-	remowedRows, err := result.RowsAffected()
+	updateRows, err := result.RowsAffected()
 
-	if err != nil || remowedRows < 1 {
+	if err != nil || updateRows < 1 {
 		return -1, err
 	}
 	return id, err
 }
 
+//AddTV insert data from tv table
 func AddTV(db *sql.DB, id int64, inTv *InPutTv) (int64, error) {
 	result, err := db.Exec("insert into tv (id, brand, manufacturer, model, year) values($1, $2, $3, $4, $5)",
 		id, inTv.Brand, inTv.Manufacturer, inTv.Model, inTv.Year)
@@ -81,14 +84,15 @@ func AddTV(db *sql.DB, id int64, inTv *InPutTv) (int64, error) {
 		return -1, err
 	}
 
-	remowedRows, err := result.RowsAffected()
+	addRows, err := result.RowsAffected()
 
-	if err != nil || remowedRows < 1 {
+	if err != nil || addRows < 1 {
 		return -1, err
 	}
 	return id, err
 }
 
+//DelTV delete data from tv table
 func DelTV(db *sql.DB, id int64) (int64, error) {
 	result, err := db.Exec("delete from tv where tv.id = $1", id)
 	if err != nil {
@@ -100,4 +104,38 @@ func DelTV(db *sql.DB, id int64) (int64, error) {
 		return -1, err
 	}
 	return id, err
+}
+
+//UpdtateReturns recalculation of available and sold goods
+func UpdtateReturns(db *sql.DB, id int64, returns int64) (int64, error) {
+	row := db.QueryRow("select sold_count, available from soldTv where soldTv.tv_id = $1", id)
+
+	var availible int64
+	var sold int64
+	err := row.Scan(&sold, &availible)
+
+	if err != nil {
+		return -1, err
+	}
+
+	if returns > sold {
+		return -1, errors.New("the quantity of returned goods is greater than the quantity sold")
+	}
+
+	availible += returns
+	sold -= returns
+
+	result, err := db.Exec("update soldTv set sold_count = $1, available = $2 where soldTv.tv_id = $3",
+		sold, availible, id)
+
+	if err != nil {
+		return -1, err
+	}
+
+	updateRows, err := result.RowsAffected()
+
+	if err != nil || updateRows < 1 {
+		return -1, err
+	}
+	return availible, err
 }
