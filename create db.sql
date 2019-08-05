@@ -15,7 +15,7 @@ CREATE TABLE soldTv(
 id Sqlite3_int64 PRIMARY KEY,
 sold_count Sqlite3_int64 NOT NULL CHECK(sold_count >= 0),
 available Sqlite3_int64 NOT NULL CHECK(available >= 0),
-tv_id Sqlite3_int64 NOT NULL,
+tv_id Sqlite3_int64 NOT NULL UNIQUE,
 FOREIGN KEY(tv_id) REFERENCES tv(id)
 );
 
