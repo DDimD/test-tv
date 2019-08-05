@@ -55,7 +55,7 @@ func (srv *Server) Handler(w http.ResponseWriter, r *http.Request) {
 			fmt.Println(err, "nothing get")
 		}
 		if tv == nil {
-			w.WriteHeader(http.StatusNotFound)
+			w.WriteHeader(http.StatusNotFound) //todo, ответов в переборе
 			http.Error(w, http.StatusText(404), 404)
 			return
 		}
@@ -157,48 +157,55 @@ func (srv *Server) Handler(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
+//PostHandler handles
 func (srv *Server) PostHandler(w http.ResponseWriter, r *http.Request) {
 
-	id, err := srv.checkID(r)
+	if r.Method != "POST" {
+		http.Error(w, http.StatusText(405), 405)
+		return
+	}
+	tv := TV{}
+	err := json.NewDecoder(r.Body).Decode(&tv)
 
 	if err != nil {
 		fmt.Println(err)
-		w.WriteHeader(http.StatusBadRequest)
+		http.Error(w, http.StatusText(400), 400)
+		return
+	}
+
+	err = validID(tv.ID)
+
+	if err != nil {
+		fmt.Println(err)
 		http.Error(w, err.Error(), 400)
 		return
 	}
-	inTv := InPutTv{}
-	err = json.NewDecoder(r.Body).Decode(&inTv)
-
-	if err != nil {
-		fmt.Println(err)
-		w.WriteHeader(http.StatusBadRequest)
-		http.Error(w, http.StatusText(400), 400)
-		return
+	inTv := InPutTv{
+		tv.Brand,
+		tv.Manufacturer,
+		tv.Model,
+		tv.Year,
 	}
 
 	err = checkData(inTv)
 
 	if err != nil {
 		fmt.Println(err)
-		w.WriteHeader(http.StatusBadRequest)
 		http.Error(w, err.Error(), 400)
 		return
 	}
 
-	updtID, err := UpdateTV(srv.db, id, &inTv)
+	addID, err := AddTV(srv.db, tv.ID, &inTv)
 
 	if err != nil {
 		fmt.Println(err)
-		w.WriteHeader(http.StatusInternalServerError)
 		http.Error(w, http.StatusText(500), 500)
 		return
 	}
 
-	if updtID < 0 {
-		w.WriteHeader(http.StatusNotFound)
+	if addID < 0 {
+		fmt.Println("index not found")
 		http.Error(w, http.StatusText(404), 404)
-
 		return
 	}
 
@@ -206,7 +213,12 @@ func (srv *Server) PostHandler(w http.ResponseWriter, r *http.Request) {
 		fmt.Println(err)
 	}
 
-	w.WriteHeader(http.StatusNoContent)
+	mapID := make(map[string]int64)
+	mapID["id"] = addID
+	jsonID, err := json.Marshal(mapID)
+
+	w.Header().Set("Content-Type", "application/json")
+	w.Write(jsonID)
 }
 
 func (srv *Server) GetAllHandler(w http.ResponseWriter, r *http.Request) {
@@ -228,11 +240,20 @@ func (srv *Server) checkID(r *http.Request) (int64, error) {
 		return 0, err
 	}
 
-	if id <= 0 {
-		return 0, errors.New("invalid id")
+	err = validID(int64(id))
+
+	if err != nil {
+		return 0, err
 	}
 	return int64(id), nil
+}
 
+func validID(id int64) error {
+	if id <= 0 {
+		return errors.New("invalid id")
+	}
+
+	return nil
 }
 
 func checkData(inTv InPutTv) error {
