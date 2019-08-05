@@ -6,8 +6,8 @@ import (
 	"encoding/json"
 	"encoding/xml"
 	"errors"
-	"fmt"
 	"io/ioutil"
+	"log"
 	"net/http"
 	"os"
 	"strconv"
@@ -43,7 +43,7 @@ func (srv *Server) Handler(w http.ResponseWriter, r *http.Request) {
 		id, err := srv.checkID(r)
 
 		if err != nil {
-			fmt.Println(err)
+			log.Println(err)
 			http.Error(w, err.Error(), 400)
 			return
 		}
@@ -51,7 +51,7 @@ func (srv *Server) Handler(w http.ResponseWriter, r *http.Request) {
 		tv, err := GetTV(srv.db, id)
 
 		if err != nil {
-			fmt.Println(err, "nothing get")
+			log.Println(err, "nothing get")
 		}
 		if tv == nil {
 			http.Error(w, http.StatusText(404), 404)
@@ -61,8 +61,11 @@ func (srv *Server) Handler(w http.ResponseWriter, r *http.Request) {
 		b, err := json.Marshal(tv)
 
 		if err != nil {
-			fmt.Println(err)
+			log.Println(err)
 		}
+
+		log.Println(r.Host, r.Method, " ", tv)
+
 		w.Header().Set("Content-Type", "application/json")
 		w.Write(b)
 
@@ -70,7 +73,7 @@ func (srv *Server) Handler(w http.ResponseWriter, r *http.Request) {
 		id, err := srv.checkID(r)
 
 		if err != nil {
-			fmt.Println(err)
+			log.Println(err)
 			http.Error(w, err.Error(), 400)
 			return
 		}
@@ -78,21 +81,19 @@ func (srv *Server) Handler(w http.ResponseWriter, r *http.Request) {
 		delID, err := DelTV(srv.db, id)
 
 		if err != nil {
-			fmt.Println(err)
+			log.Println(err)
 			http.Error(w, http.StatusText(500), 500)
 			return
 		}
 
 		if delID < 0 {
-			fmt.Println("id not found")
+			log.Println("id not found")
 			http.Error(w, http.StatusText(404), 404)
 
 			return
 		}
 
-		if err != nil {
-			fmt.Println(err)
-		}
+		log.Println(r.Host, r.Method, id)
 
 		w.WriteHeader(http.StatusNoContent)
 
@@ -101,7 +102,7 @@ func (srv *Server) Handler(w http.ResponseWriter, r *http.Request) {
 		id, err := srv.checkID(r)
 
 		if err != nil {
-			fmt.Println(err)
+			log.Println(err)
 			http.Error(w, err.Error(), 400)
 			return
 		}
@@ -109,7 +110,7 @@ func (srv *Server) Handler(w http.ResponseWriter, r *http.Request) {
 		err = json.NewDecoder(r.Body).Decode(&inTv)
 
 		if err != nil {
-			fmt.Println(err)
+			log.Println(err)
 			http.Error(w, http.StatusText(400), 400)
 			return
 		}
@@ -117,7 +118,7 @@ func (srv *Server) Handler(w http.ResponseWriter, r *http.Request) {
 		err = checkData(inTv)
 
 		if err != nil {
-			fmt.Println(err)
+			log.Println(err)
 			http.Error(w, err.Error(), 400)
 			return
 		}
@@ -125,7 +126,7 @@ func (srv *Server) Handler(w http.ResponseWriter, r *http.Request) {
 		updtID, err := UpdateTV(srv.db, id, &inTv)
 
 		if err != nil {
-			fmt.Println(err)
+			log.Println(err)
 			http.Error(w, http.StatusText(500), 500)
 			return
 		}
@@ -136,9 +137,7 @@ func (srv *Server) Handler(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 
-		if err != nil {
-			fmt.Println(err)
-		}
+		log.Println(r.Host, r.Method, id, inTv)
 
 		w.WriteHeader(http.StatusNoContent)
 
@@ -159,7 +158,7 @@ func (srv *Server) PostHandler(w http.ResponseWriter, r *http.Request) {
 	err := json.NewDecoder(r.Body).Decode(&tv)
 
 	if err != nil {
-		fmt.Println(err)
+		log.Println(err)
 		http.Error(w, http.StatusText(400), 400)
 		return
 	}
@@ -167,7 +166,7 @@ func (srv *Server) PostHandler(w http.ResponseWriter, r *http.Request) {
 	err = validID(tv.ID)
 
 	if err != nil {
-		fmt.Println(err)
+		log.Println(err)
 		http.Error(w, err.Error(), 400)
 		return
 	}
@@ -182,7 +181,7 @@ func (srv *Server) PostHandler(w http.ResponseWriter, r *http.Request) {
 	err = checkData(inTv)
 
 	if err != nil {
-		fmt.Println(err)
+		log.Println(err)
 		http.Error(w, err.Error(), 400)
 		return
 	}
@@ -190,24 +189,26 @@ func (srv *Server) PostHandler(w http.ResponseWriter, r *http.Request) {
 	addID, err := AddTV(srv.db, tv.ID, &inTv)
 
 	if err != nil {
-		fmt.Println(err)
+		log.Println(err)
 		http.Error(w, http.StatusText(500), 500)
 		return
 	}
 
 	if addID < 0 {
-		fmt.Println("index not found")
+		log.Println("index not found")
 		http.Error(w, http.StatusText(404), 404)
 		return
 	}
 
 	if err != nil {
-		fmt.Println(err)
+		log.Println(err)
 	}
 
 	mapID := make(map[string]int64)
 	mapID["id"] = addID
 	jsonID, err := json.Marshal(mapID)
+
+	log.Println(r.Host, r.Method, addID)
 
 	w.Header().Set("Content-Type", "application/json")
 	w.Write(jsonID)
@@ -277,11 +278,11 @@ func (srv *Server) ReturnsChecker(hash chan [32]byte, fileRead chan bool) {
 				xmlFile, err := os.Open("returns.xml")
 
 				if err != nil {
-					fmt.Println(err)
+					log.Println(err)
 					return
 				}
 
-				fmt.Println("Successfully Opened users.xml")
+				log.Println("Successfully Opened users.xml")
 				defer xmlFile.Close()
 
 				byteVal, _ := ioutil.ReadAll(xmlFile)
@@ -289,7 +290,7 @@ func (srv *Server) ReturnsChecker(hash chan [32]byte, fileRead chan bool) {
 				hash <- sha256.Sum256(byteVal)
 
 				if <-fileRead {
-					fmt.Println("file already read")
+					log.Println("file already read")
 					return
 				}
 
@@ -298,7 +299,7 @@ func (srv *Server) ReturnsChecker(hash chan [32]byte, fileRead chan bool) {
 				err = xml.Unmarshal(byteVal, &tvs)
 
 				if err != nil {
-					fmt.Println("xml unmarshal error: ", err)
+					log.Println("xml unmarshal error: ", err)
 				}
 
 				for _, row := range tvs.Tv {
@@ -308,11 +309,11 @@ func (srv *Server) ReturnsChecker(hash chan [32]byte, fileRead chan bool) {
 					availible, err := UpdtateReturns(srv.db, id, returns)
 
 					if err != nil {
-						fmt.Println(err)
+						log.Println(err)
 						continue
 					}
 
-					fmt.Println("tv id ", id, "returns ", returns, "availible ", availible)
+					log.Println("tv id ", id, "returns ", returns, "availible ", availible)
 				}
 			}()
 
