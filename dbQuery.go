@@ -33,8 +33,11 @@ type TV struct {
 	Year         int        `json:"year"`
 }
 
-type TvID struct {
-	ID int64 `json:"id"`
+type InPutTv struct {
+	Brand        NullString `json:"brand"`
+	Manufacturer string     `json:"manufacturer"`
+	Model        string     `json:"model"`
+	Year         int        `json:"year"`
 }
 
 //GetTV get information about the TV by id
@@ -54,13 +57,46 @@ func GetTV(db *sql.DB, id int64) (*TV, error) {
 
 func GetAllTV() {}
 
-func UpdateTV() {}
+func UpdateTV(db *sql.DB, id int64, inTv *InPutTv) (int64, error) {
+	result, err := db.Exec("update tv set brand = $1, manufacturer = $2, model = $3, year = $4  where id = $5",
+		inTv.Brand, inTv.Manufacturer, inTv.Model, inTv.Year, id)
 
-func AddTV() {}
+	if err != nil {
+		return -1, err
+	}
+
+	remowedRows, err := result.RowsAffected()
+
+	if err != nil || remowedRows < 1 {
+		return -1, err
+	}
+	return id, err
+}
+
+func AddTV(db *sql.DB, id int64, inTv *InPutTv) (int64, error) {
+	result, err := db.Exec("insert into tv (id, brand, manufacturer, model, year) values($1, $2, $3, $4, $5)",
+		id, inTv.Brand, inTv.Manufacturer, inTv.Model, inTv.Year)
+
+	if err != nil {
+		return -1, err
+	}
+
+	remowedRows, err := result.RowsAffected()
+
+	if err != nil || remowedRows < 1 {
+		return -1, err
+	}
+	return id, err
+}
 
 func DelTV(db *sql.DB, id int64) (int64, error) {
-	_, err := db.Exec("delete from tv where tv.id = $1", id)
+	result, err := db.Exec("delete from tv where tv.id = $1", id)
 	if err != nil {
+		return -1, err
+	}
+	remowedRows, err := result.RowsAffected()
+
+	if err != nil || remowedRows < 1 {
 		return -1, err
 	}
 	return id, err

@@ -45,7 +45,7 @@ func (srv *Server) Handler(w http.ResponseWriter, r *http.Request) {
 		if err != nil {
 			fmt.Println(err)
 			w.WriteHeader(http.StatusBadRequest)
-			http.Error(w, http.StatusText(400), 400)
+			http.Error(w, err.Error(), 400)
 			return
 		}
 
@@ -57,7 +57,6 @@ func (srv *Server) Handler(w http.ResponseWriter, r *http.Request) {
 		if tv == nil {
 			w.WriteHeader(http.StatusNotFound)
 			http.Error(w, http.StatusText(404), 404)
-			w.Write([]byte("Cant find item with such params"))
 			return
 		}
 		b, err := json.Marshal(tv)
@@ -74,7 +73,7 @@ func (srv *Server) Handler(w http.ResponseWriter, r *http.Request) {
 		if err != nil {
 			fmt.Println(err)
 			w.WriteHeader(http.StatusBadRequest)
-			http.Error(w, http.StatusText(400), 400)
+			http.Error(w, err.Error(), 400)
 			return
 		}
 
@@ -89,24 +88,67 @@ func (srv *Server) Handler(w http.ResponseWriter, r *http.Request) {
 
 		if delID < 0 {
 			w.WriteHeader(http.StatusNotFound)
-			w.Write([]byte("Cant find item with such params"))
 			http.Error(w, http.StatusText(404), 404)
 
 			return
 		}
 
+		if err != nil {
+			fmt.Println(err)
+		}
+
 		w.WriteHeader(http.StatusNoContent)
-		b, err := json.Marshal(tv)
+
+	case "PUT":
+
+		id, err := srv.checkID(r)
+
+		if err != nil {
+			fmt.Println(err)
+			w.WriteHeader(http.StatusBadRequest)
+			http.Error(w, err.Error(), 400)
+			return
+		}
+		inTv := InPutTv{}
+		err = json.NewDecoder(r.Body).Decode(&inTv)
+
+		if err != nil {
+			fmt.Println(err)
+			w.WriteHeader(http.StatusBadRequest)
+			http.Error(w, http.StatusText(400), 400)
+			return
+		}
+
+		err = checkData(inTv)
+
+		if err != nil {
+			fmt.Println(err)
+			w.WriteHeader(http.StatusBadRequest)
+			http.Error(w, err.Error(), 400)
+			return
+		}
+
+		updtID, err := UpdateTV(srv.db, id, &inTv)
+
+		if err != nil {
+			fmt.Println(err)
+			w.WriteHeader(http.StatusInternalServerError)
+			http.Error(w, http.StatusText(500), 500)
+			return
+		}
+
+		if updtID < 0 {
+			w.WriteHeader(http.StatusNotFound)
+			http.Error(w, http.StatusText(404), 404)
+
+			return
+		}
 
 		if err != nil {
 			fmt.Println(err)
 		}
-		w.Header().Set("Content-Type", "application/json")
-		w.Write(b)
 
-		http.Error(w, http.StatusText(204), 204)
-
-	case "PUT":
+		w.WriteHeader(http.StatusNoContent)
 
 	default:
 		w.WriteHeader(http.StatusMethodNotAllowed)
@@ -117,6 +159,54 @@ func (srv *Server) Handler(w http.ResponseWriter, r *http.Request) {
 
 func (srv *Server) PostHandler(w http.ResponseWriter, r *http.Request) {
 
+	id, err := srv.checkID(r)
+
+	if err != nil {
+		fmt.Println(err)
+		w.WriteHeader(http.StatusBadRequest)
+		http.Error(w, err.Error(), 400)
+		return
+	}
+	inTv := InPutTv{}
+	err = json.NewDecoder(r.Body).Decode(&inTv)
+
+	if err != nil {
+		fmt.Println(err)
+		w.WriteHeader(http.StatusBadRequest)
+		http.Error(w, http.StatusText(400), 400)
+		return
+	}
+
+	err = checkData(inTv)
+
+	if err != nil {
+		fmt.Println(err)
+		w.WriteHeader(http.StatusBadRequest)
+		http.Error(w, err.Error(), 400)
+		return
+	}
+
+	updtID, err := UpdateTV(srv.db, id, &inTv)
+
+	if err != nil {
+		fmt.Println(err)
+		w.WriteHeader(http.StatusInternalServerError)
+		http.Error(w, http.StatusText(500), 500)
+		return
+	}
+
+	if updtID < 0 {
+		w.WriteHeader(http.StatusNotFound)
+		http.Error(w, http.StatusText(404), 404)
+
+		return
+	}
+
+	if err != nil {
+		fmt.Println(err)
+	}
+
+	w.WriteHeader(http.StatusNoContent)
 }
 
 func (srv *Server) GetAllHandler(w http.ResponseWriter, r *http.Request) {
@@ -141,8 +231,20 @@ func (srv *Server) checkID(r *http.Request) (int64, error) {
 	if id <= 0 {
 		return 0, errors.New("invalid id")
 	}
-	return 0, nil
+	return int64(id), nil
 
+}
+
+func checkData(inTv InPutTv) error {
+	if len(inTv.Manufacturer) < 3 {
+		return errors.New("minimum string length 3 characters")
+	} else if len(inTv.Model) < 2 {
+		return errors.New("minimum string length 2 characters")
+	} else if inTv.Year < 2010 {
+		return errors.New("	year must be at least 2010")
+	}
+
+	return nil
 }
 
 func main() {
